@@ -47,17 +47,3 @@ class Tokenizer:
             self.tokens.append(Token(kind, value))
             
         return self.tokens
-
-if __name__ == '__main__':
-    sample_code = """
-        func main() {
-            p {
-                task1();
-                task2() -> task3();
-            } -> finalize();
-        }
-    """
-    tokenizer = Tokenizer(sample_code)
-    tokens = tokenizer.tokenize()
-    for token in tokens:
-        print(token)

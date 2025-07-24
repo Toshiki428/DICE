@@ -1,0 +1,7 @@
+func main() {
+    task1() -> parallel {
+        task2();
+        task3();
+    }
+    -> finalize();
+}

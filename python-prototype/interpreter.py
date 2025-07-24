@@ -74,30 +74,3 @@ class Interpreter:
             self.env[func_name]()
         else:
             raise NameError(f"Function '{func_name}' is not defined.")
-
-if __name__ == '__main__':
-    from tokenizer import Tokenizer
-
-    sample_code = """
-        func main() {
-            p {
-                task1();
-                task2() -> task3();
-            } -> finalize();
-        }
-    """
-
-    # 1. 字句解析
-    tokenizer = Tokenizer(sample_code)
-    tokens = tokenizer.tokenize()
-
-    # 2. 構文解析
-    parser = Parser(tokens)
-    ast = parser.parse()
-    print("--- AST ---")
-    print(ast)
-    print("\n--- Interpreter Execution ---")
-
-    # 3. 実行
-    interpreter = Interpreter()
-    interpreter.visit(ast)

@@ -169,25 +169,3 @@ class Parser:
         現在の位置がトークンリストの終端であればTrueを返す。
         """
         return self.peek().type == 'EOF'
-
-if __name__ == '__main__':
-    sample_code = """
-        func main() {
-            p {
-                task1();
-                task2() -> task3();
-            } -> finalize();
-        }
-    """
-    # 1. 字句解析
-    tokenizer = Tokenizer(sample_code)
-    tokens = tokenizer.tokenize()
-    print("--- TOKENS ---")
-    for token in tokens:
-        print(token)
-
-    # 2. 構文解析
-    parser = Parser(tokens)
-    ast = parser.parse()
-    print("\n--- AST ---")
-    print(ast)
