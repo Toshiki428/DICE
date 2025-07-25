@@ -11,6 +11,8 @@ class Tokenizer:
 
     def tokenize(self):
         token_specification = [
+            ('NUMBER',        r'\d+(\.\d*)?'),
+            ('STRING',        r'"[^"\\]*(\\.[^"\\]*)*"'),
             ('PARALLEL',      r'\bparallel\b'),
             ('P_ALIAS',       r'\bp\b'),
             ('FUNC',          r'\bfunc\b'),
@@ -21,6 +23,7 @@ class Tokenizer:
             ('LPAREN',        r'\('),
             ('RPAREN',        r'\)'),
             ('DOT',           r'\.'),
+            ('COMMA',         r','),
             ('SEMICOLON',     r';'),
             ('IDENTIFIER',    r'[A-Za-z_][A-Za-z0-9_]*'),
             ('NEWLINE',       r'\n'),

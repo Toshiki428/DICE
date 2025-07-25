@@ -58,12 +58,14 @@ class SequentialNode(ASTNode):
         return f"{indent_str}SequentialNode(\n{nodes_str}\n{indent_str})"
 
 class CallNode(ASTNode):
-    def __init__(self, callee):
+    def __init__(self, callee, args):
         self.callee = callee
+        self.args = args
 
     def pretty_print(self, indent=0):
         indent_str = SPACE * indent
-        return f"{indent_str}CallNode(callee={self.callee.name!r})"
+        args_str = ", ".join([arg.pretty_print(0) for arg in self.args])
+        return f"{indent_str}CallNode(callee={self.callee.name!r}, args=[{args_str}])"
 
 class IdentifierNode(ASTNode):
     def __init__(self, name):
@@ -72,6 +74,22 @@ class IdentifierNode(ASTNode):
     def pretty_print(self, indent=0):
         indent_str = SPACE * indent
         return f"{indent_str}IdentifierNode(name='{self.name}')"
+
+class StringLiteralNode(ASTNode):
+    def __init__(self, value):
+        self.value = value
+
+    def pretty_print(self, indent=0):
+        indent_str = SPACE * indent
+        return f'{indent_str}StringLiteralNode(value="{self.value}")'
+
+class NumberLiteralNode(ASTNode):
+    def __init__(self, value):
+        self.value = value
+
+    def pretty_print(self, indent=0):
+        indent_str = SPACE * indent
+        return f'{indent_str}NumberLiteralNode(value={self.value})'
 
 
 class Parser:
@@ -128,11 +146,23 @@ class Parser:
             ident = IdentifierNode(self.consume('IDENTIFIER').value)
             if self.peek().type == 'LPAREN':
                 self.consume('LPAREN')
-                # 将来的にここに引数の解析を追加する
+                args = []
+                if self.peek().type != 'RPAREN':
+                    args.append(self.parse_argument())
+                    while self.peek().type == 'COMMA':
+                        self.consume('COMMA')
+                        args.append(self.parse_argument())
                 self.consume('RPAREN')
-                return CallNode(ident)
+                return CallNode(ident, args)
             return ident
+        elif token.type == 'STRING':
+            return StringLiteralNode(self.consume('STRING').value[1:-1])
+        elif token.type == 'NUMBER':
+            return NumberLiteralNode(float(self.consume('NUMBER').value))
         raise SyntaxError(f"Unexpected token {token}")
+
+    def parse_argument(self):
+        return self.parse_expression()
 
     def parse_parallel_block(self):
         self.consume(('PARALLEL', 'P_ALIAS'))

@@ -71,6 +71,19 @@ class Interpreter:
     def visit_CallNode(self, node):
         func_name = node.callee.name
         if func_name in self.env:
-            self.env[func_name]()
+            args = [self.visit(arg) for arg in node.args]
+            self.env[func_name](*args)
         else:
             raise NameError(f"Function '{func_name}' is not defined.")
+
+    def visit_IdentifierNode(self, node):
+        if node.name in self.env:
+            return self.env[node.name]
+        else:
+            raise NameError(f"Variable '{node.name}' is not defined.")
+
+    def visit_StringLiteralNode(self, node):
+        return node.value
+
+    def visit_NumberLiteralNode(self, node):
+        return node.value
