@@ -1,5 +1,6 @@
 import time
 import threading
+import inspect
 from concurrent.futures import ThreadPoolExecutor
 from parser import Parser, ASTNode, CallNode, ParallelNode, SequentialNode, FuncDefNode, BlockNode, ProgramNode
 from stdlib import dice_print, dice_wait, mock_sensor
@@ -67,6 +68,8 @@ class Interpreter:
         with ThreadPoolExecutor() as executor:
             # 並列ブロック内のすべてのタスクをスレッドプールに投入する
             futures = [executor.submit(self.visit, stmt) for stmt in node.body.statements]
+            for future in futures:
+                future.result()
 
     def visit_SequentialNode(self, node):
         for sub_node in node.nodes:
@@ -75,8 +78,16 @@ class Interpreter:
     def visit_CallNode(self, node):
         func_name = node.callee.name
         if func_name in self.env:
+            func = self.env[func_name]
             args = [self.visit(arg) for arg in node.args]
-            self.env[func_name](*args)
+
+            sig = inspect.signature(func)
+            params = sig.parameters
+
+            if len(args) != len(params):
+                raise TypeError(f"{func_name}() takes {len(params)} positional arguments but {len(args)} were given")
+
+            func(*args)
         else:
             raise NameError(f"Function '{func_name}' is not defined.")
 
