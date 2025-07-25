@@ -2,6 +2,7 @@ import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from parser import Parser, ASTNode, CallNode, ParallelNode, SequentialNode, FuncDefNode, BlockNode, ProgramNode
+from stdlib import dice_print, dice_wait, mock_sensor
 
 # --- シミュレーション用の関数 ---
 def task1():
@@ -33,6 +34,9 @@ class Interpreter:
             'task2': task2,
             'task3': task3,
             'finalize': finalize,
+            'print': dice_print,
+            'wait': dice_wait,
+            'mock_sensor': mock_sensor,
         }
 
     def visit(self, node):

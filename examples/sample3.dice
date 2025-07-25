@@ -1,7 +1,6 @@
 func main() {
-    task1() -> parallel {
-        task2();
-        task3();
-    }
-    -> finalize();
+    parallel {
+        mock_sensor("温度", 2);
+        mock_sensor("湿度");
+    } -> wait(1) -> print("データ取得完了", "OK");
 }
