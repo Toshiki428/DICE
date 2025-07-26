@@ -28,6 +28,7 @@ class Tokenizer:
             ('IDENTIFIER',    r'[A-Za-z_][A-Za-z0-9_]*'),
             ('NEWLINE',       r'\n'),
             ('WHITESPACE',    r'[ \t]+'),
+            ('COMMENT',       r'//.*\n'),
             ('MISMATCH',      r'.'),
         ]
         tok_regex = '|'.join(f'(?P<{name}>{pattern})' for name, pattern in token_specification)
@@ -36,7 +37,7 @@ class Tokenizer:
             kind = mo.lastgroup # マッチした名前の取得（'PARALLEL', 'P_ALIAS' など）
             value = mo.group()  # マッチした文字列の取得（'parallel', 'p' など）
             
-            if kind == 'WHITESPACE':
+            if kind == 'WHITESPACE' or kind == 'COMMENT':
                 continue
             elif kind == 'MISMATCH':
                 raise RuntimeError(f'Unexpected character: {value!r} on line {self.code.count("\n", 0, mo.start()) + 1}')
