@@ -10,13 +10,15 @@ def main():
     args = arg_parser.parse_args()
 
     file_path = args.file
-    print(f"--- Reading DICE source file: {file_path} ---")
 
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             code = f.read()
     except FileNotFoundError:
         print(f"Error: File not found at '{file_path}'")
+        return
+    except IOError as e:
+        print(f"Error reading file '{file_path}': {e}")
         return
 
     # メインの処理を実行
@@ -38,8 +40,12 @@ def main():
         interpreter = Interpreter()
         interpreter.visit(ast)
 
+    except SyntaxError as e:
+        print(f"Syntax Error: {e}")
+    except NameError as e:
+        print(f"Name Error: {e}")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"An unexpected error occurred: {e}")
 
 if __name__ == '__main__':
     main()

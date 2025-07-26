@@ -39,7 +39,7 @@ class Tokenizer:
             if kind == 'WHITESPACE':
                 continue
             elif kind == 'MISMATCH':
-                raise RuntimeError(f'{value!r} unexpected on line {self.code.count("\n", 0, mo.start()) + 1}')
+                raise RuntimeError(f'Unexpected character: {value!r} on line {self.code.count("\n", 0, mo.start()) + 1}')
             
             # 'p' は単独の識別子としても使われる可能性があるため、文脈で判断が必要だが、
             # ここでは予約語として扱う。より高度なパーサーで区別する。

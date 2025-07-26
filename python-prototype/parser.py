@@ -186,11 +186,17 @@ class Parser:
             expected_type (str or tuple): 期待されるトークンのタイプ。
         """
         token = self.peek()
+        
+        is_match = False
         if isinstance(expected_type, tuple):
-            if token.type not in expected_type:
-                raise SyntaxError(f"Expected {expected_type}, got {token.type}")
-        elif token.type != expected_type:
-            raise SyntaxError(f"Expected {expected_type}, got {token.type}")
+            if token.type in expected_type:
+                is_match = True
+        elif token.type == expected_type:
+            is_match = True
+
+        if not is_match:
+            expected_str = f"one of {expected_type}" if isinstance(expected_type, tuple) else expected_type
+            raise SyntaxError(f"Expected {expected_str} but found {token.type} with value '{token.value}'")
         self.pos += 1
         return token
 
