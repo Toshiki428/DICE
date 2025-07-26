@@ -1,6 +1,24 @@
+taskunit DeviceA {
+    step1() {
+        print("DeviceA step1");
+    }
+    step2() {
+        print("DeviceA step2");
+    }
+}
+
+taskunit DeviceB {
+    step1() {
+        print("DeviceB step1");
+    }
+    step2() {
+        print("DeviceB step2");
+    }
+}
+
 func main() {
-    task1()
-    -> task2()
-    -> task3()
-    -> finalize();
+    group = parallelTasks(DeviceA, DeviceB);
+    group.next(); // DeviceA.step1() と DeviceB.step1() が並列実行される
+    print("-----");
+    group.next(); // DeviceA.step2() と DeviceB.step2() が並列実行される
 }
