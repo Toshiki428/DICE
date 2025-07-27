@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-from parser import ASTNode, FuncDefNode, ParallelNode, SequenceNode, CallNode, IdentifierNode, AssignNode, MemberAccessNode, StatementsNode, ProgramNode, TaskUnitDefNode, StringLiteralNode, NumberLiteralNode
+from parser import ASTNode, FuncDefNode, ParallelNode, SequenceNode, CallNode, IdentifierNode, AssignNode, MemberAccessNode, StatementsNode, ProgramNode, TaskUnitDefNode, StringLiteralNode, NumberLiteralNode, BinaryOpNode # BinaryOpNodeを追加
 from stdlib import STD_LIB
 
 # --- Environment for Variables and Functions ---
@@ -135,6 +135,24 @@ class Interpreter:
         value = self.visit(node.value, env)
         env.set(node.name.value, value)
         return value
+
+    def visit_BinaryOpNode(self, node, env):
+        left_val = self.visit(node.left, env)
+        right_val = self.visit(node.right, env)
+        operator_type = node.operator.type
+
+        if operator_type == 'PLUS':
+            return left_val + right_val
+        elif operator_type == 'MINUS':
+            return left_val - right_val
+        elif operator_type == 'MULTIPLY':
+            return left_val * right_val
+        elif operator_type == 'DIVIDE':
+            if right_val == 0:
+                raise ZeroDivisionError("Division by zero")
+            return left_val / right_val
+        else:
+            raise TypeError(f"Unsupported operator: {node.operator.value}")
 
     def visit_CallNode(self, node, env):
         # parallelTasksの特別な処理を最初にチェック

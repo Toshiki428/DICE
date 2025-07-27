@@ -24,10 +24,14 @@ def tokenize_generator(code):
         ('COMMA',         r','),
         ('SEMICOLON',     r';'),
         ('ASSIGN',        r'='),
+        ('COMMENT',       r'//[^\n]*'),
+        ('PLUS',          r'\+'),
+        ('MINUS',         r'-'),
+        ('MULTIPLY',      r'\*'),
+        ('DIVIDE',        r'/'),
         ('IDENTIFIER',    r'[A-Za-z_][A-Za-z0-9_]*'),
         ('NEWLINE',       r'\n'),
         ('WHITESPACE',    r'[ \t]+'),
-        ('COMMENT',       r'//[^\n]*'),
         ('MISMATCH',      r'.'),
     ]
     tok_regex = '|'.join(f'(?P<{name}>{pattern})' for name, pattern in token_specification)

@@ -1,0 +1,22 @@
+func main() {
+    result1 = 10 + 5;
+    print("10 + 5 =", result1);
+
+    result2 = 20 - 7;
+    print("20 - 7 =", result2);
+
+    result3 = 4 * 6;
+    print("4 * 6 =", result3);
+
+    result4 = 100 / 4;
+    print("100 / 4 =", result4);
+
+    result5 = (10 + 2) * 3; // 優先順位のテスト
+    print("(10 + 2) * 3 =", result5);
+
+    result6 = 10 + 2 * 3; // 優先順位のテスト
+    print("10 + 2 * 3 =", result6);
+
+    result7 = 10 / 2 + 3; // 優先順位のテスト
+    print("10 / 2 + 3 =", result7);
+}

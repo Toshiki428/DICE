@@ -1,0 +1,6 @@
+func main() {
+    myNumber = 10;
+    print("My number is:", myNumber);
+    myString = "Hello, DICE!";
+    print(myString);
+}

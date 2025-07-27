@@ -135,6 +135,20 @@ class AssignNode(ASTNode):
                 f"{self.value.pretty_print(indent + 1)}\n"
                 f"{indent_str})")
 
+class BinaryOpNode(ASTNode):
+    """二項演算子を表すノード (例: a + b)"""
+    def __init__(self, left, operator, right):
+        self.left = left
+        self.operator = operator # Tokenオブジェクト
+        self.right = right
+
+    def pretty_print(self, indent=0):
+        indent_str = SPACE * indent
+        return (f"{indent_str}BinaryOpNode(operator='{self.operator.value}',\n"
+                f"{self.left.pretty_print(indent + 1)},\n"
+                f"{self.right.pretty_print(indent + 1)}\n"
+                f"{indent_str})")
+
 # --- Parser Class ---
 
 class Parser:
@@ -181,11 +195,29 @@ class Parser:
 
     def parse_sequence(self):
         """`->` を使った順次実行の式を解析する"""
-        node = self.parse_call_or_primary()
+        node = self.parse_addition_subtraction()
         while self.peek().type == 'ARROW':
             self.consume('ARROW')
-            right = self.parse_call_or_primary()
+            right = self.parse_addition_subtraction()
             node = SequenceNode(node, right)
+        return node
+
+    def parse_addition_subtraction(self):
+        """加算・減算 (`+`, `-`) を解析する"""
+        node = self.parse_multiplication_division()
+        while self.peek().type in ('PLUS', 'MINUS'):
+            operator = self.consume(('PLUS', 'MINUS'))
+            right = self.parse_multiplication_division()
+            node = BinaryOpNode(node, operator, right)
+        return node
+
+    def parse_multiplication_division(self):
+        """乗算・除算 (`*`, `/`) を解析する"""
+        node = self.parse_call_or_primary()
+        while self.peek().type in ('MULTIPLY', 'DIVIDE'):
+            operator = self.consume(('MULTIPLY', 'DIVIDE'))
+            right = self.parse_call_or_primary()
+            node = BinaryOpNode(node, operator, right)
         return node
 
     def parse_call_or_primary(self):
