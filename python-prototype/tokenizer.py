@@ -1,55 +1,61 @@
 import re
 from collections import namedtuple
 
-Token = namedtuple('Token', ['type', 'value'])
+Token = namedtuple('Token', ['type', 'value', 'line', 'column'])
+
+def tokenize_generator(code):
+    """
+    ソースコードをトークンに分割するジェネレータ関数
+    """
+    token_specification = [
+        ('NUMBER',        r'\d+(\.\d*)?'),
+        ('STRING',        r'"[^"\\]*(\\.[^"\\]*)*"'),
+        ('PARALLEL',      r'\bparallel\b'),
+        ('P_ALIAS',       r'\bp\b'),
+        ('FUNC',          r'\bfunc\b'),
+        ('PARALLEL_TASKS',r'\bparallelTasks\b'),
+        ('TASKUNIT',      r'\btaskunit\b'),
+        ('ARROW',         r'->'),
+        ('LBRACE',        r'\{'),
+        ('RBRACE',        r'\}'),
+        ('LPAREN',        r'\('),
+        ('RPAREN',        r'\)'),
+        ('DOT',           r'\.'),
+        ('COMMA',         r','),
+        ('SEMICOLON',     r';'),
+        ('ASSIGN',        r'='),
+        ('IDENTIFIER',    r'[A-Za-z_][A-Za-z0-9_]*'),
+        ('NEWLINE',       r'\n'),
+        ('WHITESPACE',    r'[ \t]+'),
+        ('COMMENT',       r'//[^\n]*'),
+        ('MISMATCH',      r'.'),
+    ]
+    tok_regex = '|'.join(f'(?P<{name}>{pattern})' for name, pattern in token_specification)
+
+    line_num = 1    # コードの行番号
+    line_start = 0  # 現在の行の開始位置（行番号を計算するためのインデックス）
+    for mo in re.finditer(tok_regex, code):
+        kind = mo.lastgroup # マッチした名前の取得（'PARALLEL', 'P_ALIAS' など）
+        value = mo.group()  # マッチした文字列の取得（'parallel', 'p' など）
+        column = mo.start() - line_start + 1
+
+        if kind == 'WHITESPACE' or kind == 'COMMENT':
+            continue
+        elif kind == 'NEWLINE':
+            line_num += 1
+            line_start = mo.end()
+            continue
+        elif kind == 'MISMATCH':
+            raise RuntimeError(f'Unexpected character: {value!r} on line {line_num} column {column}')
+        
+        yield Token(kind, value, line_num, column)
 
 class Tokenizer:
     def __init__(self, code):
         self.code = code
         self.tokens = []
-        self.current_pos = 0
 
     def tokenize(self):
-        token_specification = [
-            ('NUMBER',        r'\d+(\.\d*)?'),
-            ('STRING',        r'"[^"\\]*(\\.[^"\\]*)*"'),
-            ('PARALLEL',      r'\bparallel\b'),
-            ('P_ALIAS',       r'\bp\b'),
-            ('FUNC',          r'\bfunc\b'),
-            ('PARALLEL_TASKS',r'\bparallelTasks\b'),
-            ('TASKUNIT',      r'\btaskunit\b'),
-            ('ARROW',         r'->'),
-            ('LBRACE',        r'\{'),
-            ('RBRACE',        r'\}'),
-            ('LPAREN',        r'\('),
-            ('RPAREN',        r'\)'),
-            ('DOT',           r'\.'),
-            ('COMMA',         r','),
-            ('SEMICOLON',     r';'),
-            ('ASSIGN',        r'='),
-            ('IDENTIFIER',    r'[A-Za-z_][A-Za-z0-9_]*'),
-            ('NEWLINE',       r'\n'),
-            ('WHITESPACE',    r'[ \t]+'),
-            ('COMMENT',       r'//.*\n'),
-            ('MISMATCH',      r'.'),
-        ]
-        tok_regex = '|'.join(f'(?P<{name}>{pattern})' for name, pattern in token_specification)
-
-        for mo in re.finditer(tok_regex, self.code):
-            kind = mo.lastgroup # マッチした名前の取得（'PARALLEL', 'P_ALIAS' など）
-            value = mo.group()  # マッチした文字列の取得（'parallel', 'p' など）
-            
-            if kind == 'WHITESPACE' or kind == 'COMMENT':
-                continue
-            elif kind == 'MISMATCH':
-                raise RuntimeError(f'Unexpected character: {value!r} on line {self.code.count("\n", 0, mo.start()) + 1}')
-            
-            # 'p' は単独の識別子としても使われる可能性があるため、文脈で判断が必要だが、
-            # ここでは予約語として扱う。より高度なパーサーで区別する。
-            # 'main'も同様。
-            if kind == 'IDENTIFIER' and value == 'p':
-                kind = 'P_ALIAS'
-            
-            self.tokens.append(Token(kind, value))
-            
+        # ジェネレータからトークンのリストを作成
+        self.tokens = list(tokenize_generator(self.code))
         return self.tokens
