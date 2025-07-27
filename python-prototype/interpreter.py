@@ -1,195 +1,191 @@
-import time
-import threading
-import inspect
 from concurrent.futures import ThreadPoolExecutor
-from parser import *
-from stdlib import dice_print, dice_wait, mock_sensor
+from parser import ASTNode, FuncDefNode, ParallelNode, SequenceNode, CallNode, IdentifierNode, AssignNode, MemberAccessNode, StatementsNode, ProgramNode, TaskUnitDefNode, StringLiteralNode, NumberLiteralNode
+from stdlib import STD_LIB
 
-# --- シミュレーション用の関数 ---
-def task1():
-    print(f"Executing task1 on thread {threading.get_ident()}...")
-    time.sleep(1)
-    print("task1 finished.")
+# --- Environment for Variables and Functions ---
 
-def task2():
-    print(f"Executing task2 on thread {threading.get_ident()}...")
-    time.sleep(0.5)
-    print("task2 finished.")
+class Environment:
+    """変数や関数のスコープを管理する環境クラス"""
+    def __init__(self, outer=None):
+        self.outer = outer
+        self.values = {}
 
-def task3():
-    print(f"Executing task3 on thread {threading.get_ident()}...")
-    time.sleep(0.7)
-    print("task3 finished.")
+    def get(self, name):
+        if name in self.values:
+            return self.values[name]
+        if self.outer is not None:
+            return self.outer.get(name)
+        raise NameError(f"Name '{name}' is not defined.")
 
-def finalize():
-    print(f"Executing finalize on thread {threading.get_ident()}...")
-    time.sleep(0.2)
-    print("finalize finished.")
+    def set(self, name, value):
+        self.values[name] = value
+        return value
 
+# --- TaskUnit and Grouping ---
 
 class TaskUnit:
-    """
-    TaskUnitは、`taskunit`の定義を保持するクラス。
-    メソッドは、step1, step2, ... のように連番の名前を持つ。
-    """
-    def __init__(self, name, methods):
-        self.name = name
-        self.methods = methods
-        self.current_step = 1
+    """taskunitの定義を表すクラス"""
+    def __init__(self, definition_node):
+        self.definition_node = definition_node
+        self.methods = {m.name: m for m in definition_node.methods}
 
-    def get_method(self, name):
-        return self.methods.get(name)
+class TaskUnitInstance:
+    """taskunitのインスタンス。実行状態を持つ"""
+    def __init__(self, task_unit_class):
+        self.task_unit_class = task_unit_class
+        self.step = 0
 
-class TaskUnitGroup:
-    """
-    TaskUnitGroupは、複数のTaskUnitをまとめて管理するクラス。
-    """
-    def __init__(self, task_units):
-        self.task_units = task_units
-        self.current_step_index = 1
+    def get_method_for_step(self):
+        method_name = f"step{self.step + 1}"
+        return self.task_unit_class.methods.get(method_name)
 
-    def next_step(self, interpreter):
-        method_name = f"step{self.current_step_index}"
-        executable_methods = []
-        for tu in self.task_units:
-            method_node = tu.get_method(method_name)
-            if method_node:
-                executable_methods.append(method_node)
+class ParallelTaskGroup:
+    """parallelTasksで作成されたTaskUnitインスタンスのグループ"""
+    def __init__(self, instances):
+        self.instances = instances
 
-        if not executable_methods:
-            print(f"No more step{self.current_step_index} methods to execute in TaskUnitGroup.")
-            return
-
-        # ここでinterpreterがInterpreterクラスのインスタンスであることを確認
-        if not isinstance(interpreter, Interpreter):
-            raise TypeError("Expected an Interpreter instance for execution.")
-
+    def next(self, interpreter, env):
+        """グループ内の全インスタンスの次のステップを並列実行する"""
         with ThreadPoolExecutor() as executor:
-            futures = [executor.submit(interpreter.visit, method.body) for method in executable_methods]
+            futures = []
+            for instance in self.instances:
+                method_node = instance.get_method_for_step()
+                if method_node:
+                    # 各メソッドを新しい環境で実行
+                    future = executor.submit(interpreter.visit, method_node.body, Environment(outer=env))
+                    futures.append(future)
+            
+            # すべてのタスクの完了を待つ
             for future in futures:
                 future.result()
-        
-        self.current_step_index += 1
+
+        # ステップを進める
+        for instance in self.instances:
+            instance.step += 1
+
+# --- Member Method Wrapper ---
+
+class MemberMethodWrapper:
+    """メンバーアクセスされたメソッドをラップし、呼び出し時に必要な引数を渡す"""
+    def __init__(self, obj, method_name, interpreter_instance, env):
+        self.obj = obj
+        self.method_name = method_name
+        self.interpreter_instance = interpreter_instance
+        self.env = env
+
+    def __call__(self, *args):
+        if self.method_name == 'next':
+            # ParallelTaskGroupのnextメソッドはinterpreterとenvを必要とする
+            return self.obj.next(self.interpreter_instance, self.env)
+        # 他のメンバーメソッドが追加された場合、ここにロジックを追加
+        raise AttributeError(f"Method '{self.method_name}' not supported via direct call.")
+
+# --- Interpreter ---
 
 class Interpreter:
     def __init__(self):
-        # 関数テーブル
-        self.env = {
-            'task1': task1,
-            'task2': task2,
-            'task3': task3,
-            'finalize': finalize,
-            'print': dice_print,
-            'wait': dice_wait,
-            'mock_sensor': mock_sensor,
-        }
-        # taskunitの定義を保持（taskunit名: TaskUnitインスタンス）
-        self.task_unit_defs = {}
+        self.global_env = Environment()
+        # 標準ライブラリを登録
+        for name, func in STD_LIB.items():
+            self.global_env.set(name, func)
 
-    def visit(self, node):
+    def interpret(self, ast):
+        """ASTを受け取り、プログラムを実行する"""
+        return self.visit(ast, self.global_env)
+
+    def visit(self, node, env):
+        """ASTノードを辿り、対応するvisitメソッドを呼び出す"""
         method_name = f'visit_{node.__class__.__name__}'
         visitor = getattr(self, method_name, self.generic_visit)
-        return visitor(node)
+        return visitor(node, env)
 
-    def generic_visit(self, node):
+    def generic_visit(self, node, env):
         raise NotImplementedError(f"No visit_{node.__class__.__name__} method defined")
 
-    def visit_ProgramNode(self, node):
-        for statement in node.statements:
-            self.visit(statement)
+    def visit_ProgramNode(self, node, env):
+        for stmt in node.statements:
+            self.visit(stmt, env)
+        # main関数を実行
+        main_func = env.get('main')
+        if isinstance(main_func, FuncDefNode):
+            self.visit(main_func.body, Environment(outer=env))
 
-    def visit_FuncDefNode(self, node):
-        if node.name == 'main':
-            self.visit(node.body)
-        else:
-            # 将来的には、他の関数定義もここで処理する
-            print(f"Function '{node.name}' defined but not called.")
+    def visit_StatementsNode(self, node, env):
+        for stmt in node.statements:
+            self.visit(stmt, env)
 
-    def visit_TaskUnitDefNode(self, node):
-        # {step1: TaskUnitMethodNode, step2: TaskUnitMethodNode, ...} のようにメソッドを辞書に格納
-        methods = {method.name: method for method in node.methods}
-        self.task_unit_defs[node.name] = TaskUnit(node.name, methods)
+    def visit_FuncDefNode(self, node, env):
+        env.set(node.name, node)
 
-    def visit_BlockNode(self, node):
-        for statement in node.statements:
-            self.visit(statement)
+    def visit_TaskUnitDefNode(self, node, env):
+        task_unit_class = TaskUnit(node)
+        env.set(node.name, task_unit_class)
 
-    def visit_ParallelNode(self, node):
+    def visit_ParallelNode(self, node, env):
         with ThreadPoolExecutor() as executor:
-            # 並列ブロック内のすべてのタスクをスレッドプールに投入する
-            futures = [executor.submit(self.visit, stmt) for stmt in node.body.statements]
+            futures = [executor.submit(self.visit, stmt, Environment(outer=env)) for stmt in node.body.statements]
             for future in futures:
-                future.result()
+                future.result() # 各スレッドの完了を待つ
 
-    def visit_SequentialNode(self, node):
-        for sub_node in node.nodes:
-            self.visit(sub_node)
+    def visit_SequenceNode(self, node, env):
+        self.visit(node.left, env)
+        return self.visit(node.right, env)
 
-    def visit_CallNode(self, node):
-        func_name = None
+    def visit_AssignNode(self, node, env):
+        value = self.visit(node.value, env)
+        env.set(node.name.value, value)
+        return value
 
-        if isinstance(node.callee, IdentifierNode):
-            func_name = node.callee.name
-            if func_name not in self.env and func_name != 'parallelTasks':
-                raise NameError(f"Function '{func_name}' is not defined.")
-            func = self.env.get(func_name) # parallelTasksはenvにないためgetを使う
-
-        elif isinstance(node.callee, MemberAccessNode):
-            value = self.visit(node.callee)
-            return value
-            
-        else:
-            raise TypeError(f"Unsupported callee type: {type(node.callee)}")
-
-        if func_name == 'parallelTasks':
-            task_unit_instances = []
+    def visit_CallNode(self, node, env):
+        # parallelTasksの特別な処理を最初にチェック
+        if isinstance(node.callee, IdentifierNode) and node.callee.value == 'parallelTasks':
+            instances = []
             for arg_node in node.args:
+                # parallelTasksの引数はTaskUnitの識別子であると想定
                 if isinstance(arg_node, IdentifierNode):
-                    task_unit_name = arg_node.name
-                    if task_unit_name in self.task_unit_defs:
-                        # taskunitの新しいインスタンスを作成
-                        task_unit_instances.append(self.task_unit_defs[task_unit_name])
+                    task_unit_class = env.get(arg_node.value)
+                    if isinstance(task_unit_class, TaskUnit):
+                        instances.append(TaskUnitInstance(task_unit_class))
                     else:
-                        raise NameError(f"TaskUnit '{task_unit_name}' is not defined.")
+                        raise TypeError(f"Argument '{arg_node.value}' to parallelTasks is not a TaskUnit.")
                 else:
-                    raise TypeError("parallelTasks expects taskunit identifiers as arguments.")
-            return TaskUnitGroup(task_unit_instances)
-        
-        # 通常の関数呼び出し
-        args = [self.visit(arg) for arg in node.args]
+                    raise TypeError("parallelTasks expects TaskUnit identifiers as arguments.")
+            return ParallelTaskGroup(instances)
 
-        sig = inspect.signature(func)
-        params = sig.parameters
+        # それ以外の通常の関数呼び出しの解決
+        callee = self.visit(node.callee, env)
+        args = [self.visit(arg, env) for arg in node.args]
 
-        if len(args) != len(params):
-            raise TypeError(f"{func_name}() takes {len(params)} positional arguments but {len(args)} were given")
+        if callable(callee):
+            return callee(*args)
+        elif isinstance(callee, FuncDefNode):
+            # ユーザー定義関数の呼び出し
+            func_env = Environment(outer=self.global_env) # クロージャのためglobalを参照
+            # TODO: 引数の処理
+            return self.visit(callee.body, func_env)
+        else:
+            # エラーメッセージの修正: MemberAccessNodeの場合も考慮
+            callee_name = node.callee.value if isinstance(node.callee, IdentifierNode) else str(node.callee)
+            raise TypeError(f"'{callee_name}' is not a function or callable.")
 
-        func(*args)
+    def visit_MemberAccessNode(self, node, env):
+        obj = self.visit(node.obj, env)
+        member_name = node.member.value
 
-    def visit_AssignNode(self, node):
-        value = self.visit(node.value)
-        self.env[node.name] = value
-
-    def visit_MemberAccessNode(self, node):
-        obj = self.visit(node.obj)
-        member_name = node.member
-
-        if isinstance(obj, TaskUnitGroup):
+        if isinstance(obj, ParallelTaskGroup):
             if member_name == 'next':
-                obj.next_step(self)
+                # MemberMethodWrapperを返すように変更
+                return MemberMethodWrapper(obj, member_name, self, env)
             else:
-                raise AttributeError(f"TaskUnitGroup has no attribute '{member_name}'")
+                raise AttributeError(f"ParallelTaskGroup has no attribute '{member_name}'")
         else:
-            raise TypeError(f"Object of type {type(obj)} does not support member access.")
+            raise TypeError(f"Object of type {type(obj)} does not support member access: {obj}")
 
-    def visit_IdentifierNode(self, node):
-        if node.name in self.env:
-            return self.env[node.name]
-        else:
-            raise NameError(f"Variable '{node.name}' is not defined.")
+    def visit_IdentifierNode(self, node, env):
+        return env.get(node.value)
 
-    def visit_StringLiteralNode(self, node):
-        return node.value
+    def visit_StringLiteralNode(self, node, env):
+        return node.value.strip('"')
 
-    def visit_NumberLiteralNode(self, node):
-        return node.value
+    def visit_NumberLiteralNode(self, node, env):
+        return float(node.value)

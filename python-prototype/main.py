@@ -38,7 +38,7 @@ def main():
         # 3. 実行
         print("\n3. Interpreting...")
         interpreter = Interpreter()
-        interpreter.visit(ast)
+        interpreter.interpret(ast)
 
     except SyntaxError as e:
         print(f"Syntax Error: {e}")

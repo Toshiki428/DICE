@@ -21,3 +21,9 @@ def mock_sensor(name="unknown", delay=1.0):
     value = round(random.uniform(0, 100), 2)
     print(f"[{name}] センサー値: {value}")
     return value
+
+STD_LIB = {
+    'print': dice_print,
+    'wait': dice_wait,
+    'mock_sensor': mock_sensor,
+}
