@@ -1,6 +1,12 @@
 from concurrent.futures import ThreadPoolExecutor
-from parser import ASTNode, FuncDefNode, ParallelNode, SequenceNode, CallNode, IdentifierNode, AssignNode, MemberAccessNode, StatementsNode, ProgramNode, TaskUnitDefNode, StringLiteralNode, NumberLiteralNode, BinaryOpNode # BinaryOpNodeを追加
+from parser import ASTNode, FuncDefNode, ParallelNode, SequenceNode, CallNode, IdentifierNode, AssignNode, MemberAccessNode, StatementsNode, ProgramNode, TaskUnitDefNode, StringLiteralNode, NumberLiteralNode, BinaryOpNode, ReturnNode
 from stdlib import STD_LIB
+
+# --- Custom Exception for Return Values ---
+class ReturnValue(Exception):
+    """関数の戻り値を伝えるためのカスタム例外"""
+    def __init__(self, value):
+        self.value = value
 
 # --- Environment for Variables and Functions ---
 
@@ -91,7 +97,11 @@ class Interpreter:
 
     def interpret(self, ast):
         """ASTを受け取り、プログラムを実行する"""
-        return self.visit(ast, self.global_env)
+        try:
+            self.visit(ast, self.global_env)
+        except ReturnValue as e:
+            # プログラムのトップレベルでのreturnはエラー
+            raise RuntimeError(f"Return statement outside of function: {e.value}")
 
     def visit(self, node, env):
         """ASTノードを辿り、対応するvisitメソッドを呼び出す"""
@@ -108,11 +118,16 @@ class Interpreter:
         # main関数を実行
         main_func = env.get('main')
         if isinstance(main_func, FuncDefNode):
+            # main関数の実行はReturnValueを捕捉しない
             self.visit(main_func.body, Environment(outer=env))
 
     def visit_StatementsNode(self, node, env):
         for stmt in node.statements:
-            self.visit(stmt, env)
+            try:
+                self.visit(stmt, env)
+            except ReturnValue as e:
+                # return文が実行されたら、それ以上ステートメントを処理せずに例外を再スロー
+                raise e
 
     def visit_FuncDefNode(self, node, env):
         env.set(node.name, node)
@@ -154,6 +169,10 @@ class Interpreter:
         else:
             raise TypeError(f"Unsupported operator: {node.operator.value}")
 
+    def visit_ReturnNode(self, node, env):
+        value = self.visit(node.value, env)
+        raise ReturnValue(value)
+
     def visit_CallNode(self, node, env):
         # parallelTasksの特別な処理を最初にチェック
         if isinstance(node.callee, IdentifierNode) and node.callee.value == 'parallelTasks':
@@ -179,8 +198,20 @@ class Interpreter:
         elif isinstance(callee, FuncDefNode):
             # ユーザー定義関数の呼び出し
             func_env = Environment(outer=self.global_env) # クロージャのためglobalを参照
-            # TODO: 引数の処理
-            return self.visit(callee.body, func_env)
+            
+            # 引数の数をチェック
+            if len(args) != len(callee.params):
+                raise TypeError(f"{callee.name}() takes {len(callee.params)} arguments but {len(args)} were given")
+            
+            # 引数を関数スコープに設定
+            for i, param_name_node in enumerate(callee.params):
+                func_env.set(param_name_node.value, args[i])
+
+            try:
+                self.visit(callee.body, func_env)
+            except ReturnValue as e:
+                return e.value # ReturnValue例外から値を取り出して返す
+            return None # return文がない場合はNoneを返す
         else:
             # エラーメッセージの修正: MemberAccessNodeの場合も考慮
             callee_name = node.callee.value if isinstance(node.callee, IdentifierNode) else str(node.callee)

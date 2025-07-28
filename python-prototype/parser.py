@@ -33,14 +33,16 @@ class StatementsNode(ASTNode):
         return f"{indent_str}StatementsNode(\n{statements_str}\n{indent_str})"
 
 class FuncDefNode(ASTNode):
-    """関数定義： func name() { body }"""
-    def __init__(self, name, body):
+    """関数定義： func name(params) { body }"""
+    def __init__(self, name, params, body):
         self.name = name
+        self.params = params
         self.body = body
 
     def pretty_print(self, indent=0):
         indent_str = SPACE * indent
-        return (f"{indent_str}FuncDefNode(name={self.name},\n"
+        params_str = ", ".join([p.value for p in self.params]) # 引数表示を追加
+        return (f"{indent_str}FuncDefNode(name={self.name}, params=[{params_str}],\n"
                 f"{self.body.pretty_print(indent + 1)}\n"
                 f"{indent_str})")
 
@@ -149,6 +151,17 @@ class BinaryOpNode(ASTNode):
                 f"{self.right.pretty_print(indent + 1)}\n"
                 f"{indent_str})")
 
+class ReturnNode(ASTNode):
+    """return文を表すノード"""
+    def __init__(self, value):
+        self.value = value
+
+    def pretty_print(self, indent=0):
+        indent_str = SPACE * indent
+        return (f"{indent_str}ReturnNode(\n"
+                f"{self.value.pretty_print(indent + 1)}\n"
+                f"{indent_str})")
+
 # --- Parser Class ---
 
 class Parser:
@@ -171,6 +184,8 @@ class Parser:
             return self.parse_func_def()
         if self.peek().type == 'TASKUNIT':
             return self.parse_task_unit_def()
+        if self.peek().type == 'RETURN':
+            return self.parse_return_statement()
         return self.parse_expression_statement()
 
     def parse_expression_statement(self):
@@ -179,6 +194,14 @@ class Parser:
         if self.peek().type == 'SEMICOLON':
             self.consume('SEMICOLON')
         return expr
+
+    def parse_return_statement(self):
+        """return文を解析する"""
+        self.consume('RETURN')
+        value = self.parse_expression()
+        if self.peek().type == 'SEMICOLON':
+            self.consume('SEMICOLON')
+        return ReturnNode(value)
 
     def parse_expression(self):
         """任意の式を解析する（現在は代入式から開始）"""
@@ -288,10 +311,17 @@ class Parser:
         self.consume('FUNC')
         name = self.consume('IDENTIFIER').value
         self.consume('LPAREN')
-        # TODO: 引数の解析
+        
+        params = []
+        if self.peek().type == 'IDENTIFIER':
+            params.append(self.consume('IDENTIFIER'))
+            while self.peek().type == 'COMMA':
+                self.consume('COMMA')
+                params.append(self.consume('IDENTIFIER'))
+
         self.consume('RPAREN')
         body = self.parse_block()
-        return FuncDefNode(name, body)
+        return FuncDefNode(name, params, body)
 
     def parse_task_unit_def(self):
         """`taskunit` 定義を解析する"""
@@ -311,9 +341,10 @@ class Parser:
         """`taskunit` 内のメソッド定義を解析する"""
         name = self.consume('IDENTIFIER').value
         self.consume('LPAREN')
+        # taskunitメソッドの引数はまだサポートしない
         self.consume('RPAREN')
         body = self.parse_block()
-        return FuncDefNode(name, body) # FuncDefNodeを再利用
+        return FuncDefNode(name, [], body) # paramsを空リストで渡している
 
     # --- Utility Methods ---
 

@@ -1,0 +1,25 @@
+func add(a, b) {
+    return a + b;
+}
+
+func greet(name) {
+    return "Hello, " + name + "!";
+}
+
+func main() {
+    sum = add(10, 20);
+    print("Sum:", sum);
+
+    message = greet("World");
+    print("Message:", message);
+
+    // return文がない関数のテスト
+    print("Calling a function without explicit return:");
+    noReturnFunc();
+    result_no_return = noReturnFunc();
+    print("Result of noReturnFunc:", result_no_return); // Noneが出力される
+}
+
+func noReturnFunc() {
+    print("This function has no explicit return.");
+}
