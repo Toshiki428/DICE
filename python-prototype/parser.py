@@ -126,6 +126,9 @@ class StringLiteralNode(LiteralNode):
 class NumberLiteralNode(LiteralNode):
     pass
 
+class BooleanLiteralNode(LiteralNode):
+    pass
+
 class AssignNode(ASTNode):
     def __init__(self, name, value):
         self.name = name
@@ -283,6 +286,10 @@ class Parser:
             return StringLiteralNode(self.consume('STRING'))
         elif token.type == 'NUMBER':
             return NumberLiteralNode(self.consume('NUMBER'))
+        elif token.type == 'TRUE':
+            return BooleanLiteralNode(self.consume('TRUE'))
+        elif token.type == 'FALSE':
+            return BooleanLiteralNode(self.consume('FALSE'))
         elif token.type == 'PARALLEL_TASKS':
             return IdentifierNode(self.consume('PARALLEL_TASKS'))
         elif token.type == 'LPAREN':

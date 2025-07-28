@@ -10,6 +10,8 @@ def tokenize_generator(code):
     token_specification = [
         ('NUMBER',        r'\d+(\.\d*)?'),
         ('STRING',        r'"[^"\\]*(\\.[^"\\]*)*"'),
+        ('TRUE',          r'\btrue\b'),
+        ('FALSE',         r'\bfalse\b'),
         ('PARALLEL',      r'\bparallel\b'),
         ('P_ALIAS',       r'\bp\b'),
         ('FUNC',          r'\bfunc\b'),

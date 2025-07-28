@@ -63,3 +63,16 @@ def test_interpreter_function_call(run_dice_code):
     """
     output = run_dice_code(code)
     assert "Hello, World" in output
+
+def test_interpreter_boolean_values(run_dice_code):
+    code = """
+    func main() {
+        a = true;
+        b = false;
+        print(a);
+        print(b);
+    }
+    """
+    output = run_dice_code(code)
+    assert "True" in output
+    assert "False" in output

@@ -1,6 +1,6 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
-from parser import ASTNode, FuncDefNode, ParallelNode, SequenceNode, CallNode, IdentifierNode, AssignNode, MemberAccessNode, StatementsNode, ProgramNode, TaskUnitDefNode, StringLiteralNode, NumberLiteralNode, BinaryOpNode, ReturnNode, TimedNode
+from parser import ASTNode, FuncDefNode, ParallelNode, SequenceNode, CallNode, IdentifierNode, AssignNode, MemberAccessNode, StatementsNode, ProgramNode, TaskUnitDefNode, StringLiteralNode, NumberLiteralNode, BooleanLiteralNode, BinaryOpNode, ReturnNode, TimedNode
 from stdlib import STD_LIB
 
 # --- Custom Exception for Return Values ---
@@ -260,3 +260,6 @@ class Interpreter:
 
     def visit_NumberLiteralNode(self, node, env):
         return float(node.value)
+
+    def visit_BooleanLiteralNode(self, node, env):
+        return node.value == 'true'
