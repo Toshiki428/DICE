@@ -129,6 +129,25 @@ class NumberLiteralNode(LiteralNode):
 class BooleanLiteralNode(LiteralNode):
     pass
 
+class IfNode(ASTNode):
+    """if (condition) { then_branch } else { else_branch }"""
+    def __init__(self, condition, then_branch, else_branch):
+        self.condition = condition
+        self.then_branch = then_branch
+        self.else_branch = else_branch
+
+    def pretty_print(self, indent=0):
+        indent_str = SPACE * indent
+        else_str = ""
+        if self.else_branch:
+            else_str = (f"\n{indent_str}else\n"
+                       f"{self.else_branch.pretty_print(indent + 1)}")
+
+        return (f"{indent_str}IfNode(\n"
+                f"{self.condition.pretty_print(indent + 1)},\n"
+                f"{self.then_branch.pretty_print(indent + 1)}"
+                f"{else_str}\n{indent_str})")
+
 class AssignNode(ASTNode):
     def __init__(self, name, value):
         self.name = name
@@ -202,6 +221,8 @@ class Parser:
             return self.parse_func_def()
         if self.peek().type == 'TASKUNIT':
             return self.parse_task_unit_def()
+        if self.peek().type == 'IF':
+            return self.parse_if_statement()
         if self.peek().type == 'RETURN':
             return self.parse_return_statement()
         return self.parse_expression_statement()
@@ -232,7 +253,16 @@ class Parser:
             self.consume('ASSIGN')
             value = self.parse_assignment() # 右結合
             return AssignNode(name, value)
-        return self.parse_sequence()
+        return self.parse_comparison()
+
+    def parse_comparison(self):
+        """比較演算 (`==`, `!=`, `<`, `>`, `<=`, `>=`) を解析する"""
+        node = self.parse_addition_subtraction()
+        while self.peek().type in ('EQ', 'NEQ', 'LT', 'GT', 'LTE', 'GTE'):
+            operator = self.consume(self.peek().type)
+            right = self.parse_addition_subtraction()
+            node = BinaryOpNode(node, operator, right)
+        return node
 
     def parse_sequence(self):
         """`->` を使った順次実行の式を解析する"""
@@ -344,6 +374,18 @@ class Parser:
         self.consume('RPAREN')
         body = self.parse_block()
         return FuncDefNode(name, params, body)
+
+    def parse_if_statement(self):
+        self.consume('IF')
+        self.consume('LPAREN')
+        condition = self.parse_expression()
+        self.consume('RPAREN')
+        then_branch = self.parse_block()
+        else_branch = None
+        if self.peek().type == 'ELSE':
+            self.consume('ELSE')
+            else_branch = self.parse_block()
+        return IfNode(condition, then_branch, else_branch)
 
     def parse_timed_block(self):
         """`@timed` アノテーションが付いたブロックや関数を解析する"""

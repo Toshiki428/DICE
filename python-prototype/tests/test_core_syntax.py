@@ -76,3 +76,58 @@ def test_interpreter_boolean_values(run_dice_code):
     output = run_dice_code(code)
     assert "True" in output
     assert "False" in output
+
+def test_interpreter_if_statement(run_dice_code):
+    code = """
+    func main() {
+        a = 10;
+        if (a == 10) {
+            print("a is 10");
+        } else {
+            print("a is not 10");
+        }
+    }
+    """
+    output = run_dice_code(code)
+    assert "a is 10" in output
+
+def test_interpreter_if_else_statement(run_dice_code):
+    code = """
+    func main() {
+        a = 20;
+        if (a == 10) {
+            print("a is 10");
+        } else {
+            print("a is not 10");
+        }
+    }
+    """
+    output = run_dice_code(code)
+    assert "a is not 10" in output
+
+def test_interpreter_comparison_operators(run_dice_code):
+    # Equal
+    assert "True" in run_dice_code('func main() { print(10 == 10); }')
+    assert "False" in run_dice_code('func main() { print(10 == 5); }')
+
+    # Not Equal
+    assert "True" in run_dice_code('func main() { print(10 != 5); }')
+    assert "False" in run_dice_code('func main() { print(10 != 10); }')
+
+    # Less Than
+    assert "True" in run_dice_code('func main() { print(5 < 10); }')
+    assert "False" in run_dice_code('func main() { print(10 < 5); }')
+
+    # Greater Than
+    assert "True" in run_dice_code('func main() { print(10 > 5); }')
+    assert "False" in run_dice_code('func main() { print(5 > 10); }')
+
+    # Less Than or Equal
+    assert "True" in run_dice_code('func main() { print(5 <= 5); }')
+    assert "True" in run_dice_code('func main() { print(4 <= 5); }')
+    assert "False" in run_dice_code('func main() { print(6 <= 5); }')
+
+    # Greater Than or Equal
+    assert "True" in run_dice_code('func main() { print(10 >= 10); }')
+    assert "True" in run_dice_code('func main() { print(11 >= 10); }')
+    assert "False" in run_dice_code('func main() { print(9 >= 10); }')

@@ -1,6 +1,6 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
-from parser import ASTNode, FuncDefNode, ParallelNode, SequenceNode, CallNode, IdentifierNode, AssignNode, MemberAccessNode, StatementsNode, ProgramNode, TaskUnitDefNode, StringLiteralNode, NumberLiteralNode, BooleanLiteralNode, BinaryOpNode, ReturnNode, TimedNode
+from parser import ASTNode, FuncDefNode, ParallelNode, SequenceNode, CallNode, IdentifierNode, AssignNode, MemberAccessNode, StatementsNode, ProgramNode, TaskUnitDefNode, StringLiteralNode, NumberLiteralNode, BooleanLiteralNode, BinaryOpNode, ReturnNode, TimedNode, IfNode
 from stdlib import STD_LIB
 
 # --- Custom Exception for Return Values ---
@@ -167,6 +167,18 @@ class Interpreter:
             if right_val == 0:
                 raise ZeroDivisionError("Division by zero")
             return left_val / right_val
+        elif operator_type == 'EQ':
+            return left_val == right_val
+        elif operator_type == 'NEQ':
+            return left_val != right_val
+        elif operator_type == 'LT':
+            return left_val < right_val
+        elif operator_type == 'GT':
+            return left_val > right_val
+        elif operator_type == 'LTE':
+            return left_val <= right_val
+        elif operator_type == 'GTE':
+            return left_val >= right_val
         else:
             raise TypeError(f"Unsupported operator: {node.operator.value}")
 
@@ -263,3 +275,10 @@ class Interpreter:
 
     def visit_BooleanLiteralNode(self, node, env):
         return node.value == 'true'
+
+    def visit_IfNode(self, node, env):
+        condition = self.visit(node.condition, env)
+        if condition:
+            return self.visit(node.then_branch, env)
+        elif node.else_branch:
+            return self.visit(node.else_branch, env)
