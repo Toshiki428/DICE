@@ -162,6 +162,19 @@ class ReturnNode(ASTNode):
                 f"{self.value.pretty_print(indent + 1)}\n"
                 f"{indent_str})")
 
+class TimedNode(ASTNode):
+    """@timedアノテーションを表すノード"""
+    def __init__(self, node, tag=None):
+        self.node = node
+        self.tag = tag
+
+    def pretty_print(self, indent=0):
+        indent_str = SPACE * indent
+        tag_str = f", tag='{self.tag}'" if self.tag else ""
+        return (f"{indent_str}TimedNode(node=\n"
+                f"{self.node.pretty_print(indent + 1)}\n"
+                f"{indent_str}{tag_str})")
+
 # --- Parser Class ---
 
 class Parser:
@@ -180,6 +193,8 @@ class Parser:
 
     def parse_statement(self):
         """単一のステートメント（文）を解析する"""
+        if self.peek().type == 'AT':
+            return self.parse_timed_block()
         if self.peek().type == 'FUNC':
             return self.parse_func_def()
         if self.peek().type == 'TASKUNIT':
@@ -322,6 +337,35 @@ class Parser:
         self.consume('RPAREN')
         body = self.parse_block()
         return FuncDefNode(name, params, body)
+
+    def parse_timed_block(self):
+        """`@timed` アノテーションが付いたブロックや関数を解析する"""
+        self.consume('AT')
+        if self.peek().type == 'IDENTIFIER' and self.peek().value == 'timed':
+            self.consume('IDENTIFIER')
+            
+            tag = None
+            if self.peek().type == 'LPAREN':
+                self.consume('LPAREN')
+                if self.peek().type == 'STRING':
+                    tag = self.consume('STRING').value.strip('"')
+                else:
+                    raise SyntaxError(f"Expected string literal for @timed tag, but found {self.peek().type}")
+                self.consume('RPAREN')
+
+            # `@timed` の後に続くノードを解析
+            if self.peek().type == 'LBRACE':
+                # @timed { ... } の形式
+                node = self.parse_block()
+            elif self.peek().type in ('PARALLEL', 'P_ALIAS'):
+                # @timed parallel { ... } の形式
+                node = self.parse_parallel_block()
+            else:
+                # @timed statement; の形式 (例: @timed func_call();)
+                node = self.parse_expression_statement()
+            return TimedNode(node, tag)
+        else:
+            raise SyntaxError(f"Expected 'timed' after '@', but found {self.peek().value}")
 
     def parse_task_unit_def(self):
         """`taskunit` 定義を解析する"""

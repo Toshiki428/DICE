@@ -1,0 +1,41 @@
+func my_func() {
+    wait(0.1)
+}
+
+func main() {
+    // 関数呼び出しの計測 (タグなし)
+    @timed
+    my_func();
+
+    // 関数呼び出しの計測（タグ付き）
+    @timed("my_func_timer")
+    my_func();
+
+    // ブロックの計測 (タグなし)
+    @timed("my_block_timer")
+    {
+        wait(0.05);
+        wait(0.05);
+    }
+
+    // ブロックの計測 (タグ付き)
+    @timed("my_block_timer")
+    {
+        wait(0.05);
+        wait(0.05);
+    }
+
+    // 並列ブロックの計測 (タグなし)
+    @timed
+    p {
+        wait(0.03);
+        wait(0.03);
+    }
+
+    // 並列ブロックの計測 (タグ付き)
+    @timed("parallel_task_timer")
+    p {
+        wait(0.02);
+        wait(0.02);
+    }
+}

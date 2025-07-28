@@ -1,5 +1,6 @@
+import time
 from concurrent.futures import ThreadPoolExecutor
-from parser import ASTNode, FuncDefNode, ParallelNode, SequenceNode, CallNode, IdentifierNode, AssignNode, MemberAccessNode, StatementsNode, ProgramNode, TaskUnitDefNode, StringLiteralNode, NumberLiteralNode, BinaryOpNode, ReturnNode
+from parser import ASTNode, FuncDefNode, ParallelNode, SequenceNode, CallNode, IdentifierNode, AssignNode, MemberAccessNode, StatementsNode, ProgramNode, TaskUnitDefNode, StringLiteralNode, NumberLiteralNode, BinaryOpNode, ReturnNode, TimedNode
 from stdlib import STD_LIB
 
 # --- Custom Exception for Return Values ---
@@ -229,6 +230,27 @@ class Interpreter:
                 raise AttributeError(f"ParallelTaskGroup has no attribute '{member_name}'")
         else:
             raise TypeError(f"Object of type {type(obj)} does not support member access: {obj}")
+
+    def visit_TimedNode(self, node, env):
+        start_time = time.time()
+        result = self.visit(node.node, env)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        
+        # 出力形式の変更
+        if node.tag:
+            label = node.tag
+        elif isinstance(node.node, CallNode):
+            label = "function"
+        elif isinstance(node.node, StatementsNode):
+            label = "block"
+        elif isinstance(node.node, ParallelNode):
+            label = "parallel"
+        else:
+            label = node.node.__class__.__name__
+
+        print(f"[TIMED: {label}] {elapsed_time:.4f}s")
+        return result
 
     def visit_IdentifierNode(self, node, env):
         return env.get(node.value)

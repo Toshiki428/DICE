@@ -16,6 +16,7 @@ def tokenize_generator(code):
         ('PARALLEL_TASKS',r'\bparallelTasks\b'),
         ('TASKUNIT',      r'\btaskunit\b'),
         ('RETURN',        r'\breturn\b'),
+        ('AT',            r'@'),
         ('ARROW',         r'->'),
         ('LBRACE',        r'\{'),
         ('RBRACE',        r'\}'),
