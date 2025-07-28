@@ -46,13 +46,17 @@ parallel {
 
 ## 3. 処理時間計測（@timed アノテーション）
 
-- 関数やブロックに `@timed` を付けると、その処理の実行時間が計測・レポートされる。
+- 関数やブロックに `@timed` を付けると、直後のノードの実行時間が計測・レポートされる。
 - 並列処理内で個別の処理時間と合計の処理時間を把握するのに有効。
 
 ```dice
 @timed
-func loadSensorData() {
-    // センサー読み込み処理
+loadSensorData();
+
+@timed
+{
+	loadSensorData1();
+	loadSensorData2();
 }
 
 @timed
@@ -60,6 +64,35 @@ parallel {
     readSensor1();
     readSensor2();
 }
+```
+
+```
+[TIMED: function] 0.1050s
+[TIMED: block]    0.1101s
+[TIMED: parallel] 0.0348s
+```
+
+```dice
+@timed("tagA")
+loadSensorData();
+
+@timed("tagB")
+{
+	loadSensorData1();
+	loadSensorData2();
+}
+
+@timed("tagC")
+parallel {
+    readSensor1();
+    readSensor2();
+}
+```
+
+```
+[TIMED: tagA] 0.1050s
+[TIMED: tagB] 0.1101s
+[TIMED: tagC] 0.0348s
 ```
 
 ## 4. 並列タスクグループ + 同期制御（試案）
