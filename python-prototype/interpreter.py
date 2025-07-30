@@ -1,6 +1,6 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
-from parser import ASTNode, FuncDefNode, ParallelNode, SequenceNode, CallNode, IdentifierNode, AssignNode, MemberAccessNode, StatementsNode, ProgramNode, TaskUnitDefNode, StringLiteralNode, NumberLiteralNode, BooleanLiteralNode, BinaryOpNode, ReturnNode, TimedNode, IfNode
+from parser import ASTNode, FuncDefNode, ParallelNode, SequenceNode, CallNode, IdentifierNode, AssignNode, MemberAccessNode, StatementsNode, ProgramNode, TaskUnitDefNode, StringLiteralNode, NumberLiteralNode, BooleanLiteralNode, BinaryOpNode, ReturnNode, TimedNode, IfNode, LoopNode, RangeNode
 from stdlib import STD_LIB
 
 # --- Custom Exception for Return Values ---
@@ -282,3 +282,32 @@ class Interpreter:
             return self.visit(node.then_branch, env)
         elif node.else_branch:
             return self.visit(node.else_branch, env)
+
+    def visit_LoopNode(self, node, env):
+        start = self.visit(node.range_node.start, env)
+        end = self.visit(node.range_node.end, env)
+        inclusive = node.range_node.inclusive
+
+        # 範囲の生成
+        if inclusive:
+            # 0..=x の場合、xを含む
+            iterable_range = range(int(start), int(end) + 1)
+        else:
+            # 0..x の場合、xを含まない
+            iterable_range = range(int(start), int(end))
+        
+        if node.is_parallel:
+            with ThreadPoolExecutor() as executor:
+                futures = []
+                for item in iterable_range:
+                    loop_env = Environment(outer=env)
+                    loop_env.set(node.variable.value, item)
+                    future = executor.submit(self.visit, node.body, loop_env)
+                    futures.append(future)
+                for future in futures:
+                    future.result()
+        else:
+            for item in iterable_range:
+                loop_env = Environment(outer=env)
+                loop_env.set(node.variable.value, item)
+                self.visit(node.body, loop_env)

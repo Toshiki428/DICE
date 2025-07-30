@@ -1,0 +1,10 @@
+func main() {
+    if (true) {
+        wait(1) -> print("first");
+        wait(0.5) -> print("second");
+    }
+    p loop i in 0..3 {
+        wait(0.01 * (2-i)); // 意図的に逆順で終わるように待機
+        print(i);
+    }
+}

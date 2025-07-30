@@ -129,6 +129,38 @@ class NumberLiteralNode(LiteralNode):
 class BooleanLiteralNode(LiteralNode):
     pass
 
+class RangeNode(ASTNode):
+    """範囲を表すノード (例: 0..10, 0..=10)"""
+    def __init__(self, start, end, inclusive):
+        self.start = start
+        self.end = end
+        self.inclusive = inclusive # True if ..=, False if ..
+
+    def pretty_print(self, indent=0):
+        indent_str = SPACE * indent
+        op = "..=" if self.inclusive else ".."
+        return (f"{indent_str}RangeNode(op='{op}',\n"
+                f"{self.start.pretty_print(indent + 1)},\n"
+                f"{self.end.pretty_print(indent + 1)}\n"
+                f"{indent_str})")
+
+class LoopNode(ASTNode):
+    """loop var in range { body }"""
+    def __init__(self, variable, range_node, body, is_parallel=False):
+        self.variable = variable
+        self.range_node = range_node
+        self.body = body
+        self.is_parallel = is_parallel
+
+    def pretty_print(self, indent=0):
+        indent_str = SPACE * indent
+        parallel_str = " (parallel)" if self.is_parallel else ""
+        return (f"{indent_str}LoopNode{parallel_str}(\n"
+                f"{self.variable.pretty_print(indent + 1)},\n"
+                f"{self.range_node.pretty_print(indent + 1)},\n"
+                f"{self.body.pretty_print(indent + 1)}\n"
+                f"{indent_str})")
+
 class IfNode(ASTNode):
     """if (condition) { then_branch } else { else_branch }"""
     def __init__(self, condition, then_branch, else_branch):
@@ -215,6 +247,15 @@ class Parser:
 
     def parse_statement(self):
         """単一のステートメント（文）を解析する"""
+        if self.peek().type in ('PARALLEL', 'P_ALIAS'):
+            # 'p' が 'loop' の修飾子として使われるケースをチェック
+            if self.peek(1).type == 'LOOP':
+                self.consume(('PARALLEL', 'P_ALIAS')) # 'p'を消費
+                return self.parse_loop_statement(is_parallel=True)
+            # そうでなければ、通常の parallel ブロックとして解釈
+            else:
+                return self.parse_parallel_block()
+
         if self.peek().type == 'AT':
             return self.parse_timed_block()
         if self.peek().type == 'FUNC':
@@ -223,6 +264,8 @@ class Parser:
             return self.parse_task_unit_def()
         if self.peek().type == 'IF':
             return self.parse_if_statement()
+        if self.peek().type == 'LOOP':
+            return self.parse_loop_statement(is_parallel=False)
         if self.peek().type == 'RETURN':
             return self.parse_return_statement()
         return self.parse_expression_statement()
@@ -243,17 +286,30 @@ class Parser:
         return ReturnNode(value)
 
     def parse_expression(self):
-        """任意の式を解析する（現在は代入式から開始）"""
-        return self.parse_assignment()
+        """任意の式を解析する"""
+        return self.parse_sequence()
+
+    def parse_sequence(self):
+        """`->` を使った順次実行の式を解析する"""
+        node = self.parse_assignment()
+        while self.peek().type == 'ARROW':
+            self.consume('ARROW')
+            right = self.parse_assignment()
+            node = SequenceNode(node, right)
+        return node
 
     def parse_assignment(self):
         """代入式 `a = b` を解析する"""
-        if self.peek().type == 'IDENTIFIER' and self.peek(1).type == 'ASSIGN':
-            name = IdentifierNode(self.consume('IDENTIFIER'))
+        left = self.parse_comparison() # 代入の左辺（IdentifierNode）は比較演算子より優先度が高い
+
+        if self.peek().type == 'ASSIGN':
             self.consume('ASSIGN')
-            value = self.parse_assignment() # 右結合
-            return AssignNode(name, value)
-        return self.parse_comparison()
+            value = self.parse_assignment() # 右側の代入を再帰的に解析
+            if isinstance(left, IdentifierNode):
+                return AssignNode(left, value)
+            else:
+                raise SyntaxError("Invalid assignment target.")
+        return left
 
     def parse_comparison(self):
         """比較演算 (`==`, `!=`, `<`, `>`, `<=`, `>=`) を解析する"""
@@ -262,15 +318,6 @@ class Parser:
             operator = self.consume(self.peek().type)
             right = self.parse_addition_subtraction()
             node = BinaryOpNode(node, operator, right)
-        return node
-
-    def parse_sequence(self):
-        """`->` を使った順次実行の式を解析する"""
-        node = self.parse_addition_subtraction()
-        while self.peek().type == 'ARROW':
-            self.consume('ARROW')
-            right = self.parse_addition_subtraction()
-            node = SequenceNode(node, right)
         return node
 
     def parse_addition_subtraction(self):
@@ -295,6 +342,10 @@ class Parser:
         """関数呼び出し、メンバーアクセス、またはプライマリ式を解析する"""
         node = self.parse_primary()
         while True:
+            # 範囲演算子の場合、ここで処理を中断し、parse_loop_statementに任せる
+            if self.peek().type in ('RANGE_EXCLUSIVE_OP', 'RANGE_INCLUSIVE_OP'):
+                break # ループを抜けて、現在のノードを返す
+
             if self.peek().type == 'LPAREN':
                 node = self.parse_call(node)
             elif self.peek().type == 'DOT':
@@ -308,9 +359,7 @@ class Parser:
     def parse_primary(self):
         """最も基本的な式の要素（リテラル、識別子、括弧付きの式など）を解析する"""
         token = self.peek()
-        if token.type in ('PARALLEL', 'P_ALIAS'):
-            return self.parse_parallel_block()
-        elif token.type == 'IDENTIFIER':
+        if token.type == 'IDENTIFIER':
             return IdentifierNode(self.consume('IDENTIFIER'))
         elif token.type == 'STRING':
             return StringLiteralNode(self.consume('STRING'))
@@ -374,6 +423,28 @@ class Parser:
         self.consume('RPAREN')
         body = self.parse_block()
         return FuncDefNode(name, params, body)
+
+    def parse_loop_statement(self, is_parallel=False):
+        self.consume('LOOP')
+        variable = IdentifierNode(self.consume('IDENTIFIER'))
+        self.consume('IN')
+        
+        start_expr = self.parse_expression() # 範囲の開始
+
+        inclusive = False
+        if self.peek().type == 'RANGE_EXCLUSIVE_OP':
+            self.consume('RANGE_EXCLUSIVE_OP')
+        elif self.peek().type == 'RANGE_INCLUSIVE_OP':
+            self.consume('RANGE_INCLUSIVE_OP')
+            inclusive = True
+        else:
+            raise SyntaxError(f"Expected '..' or '..=' after start of range in loop, but found {self.peek().type}")
+
+        end_expr = self.parse_expression() # 範囲の終了
+        
+        range_node = RangeNode(start_expr, end_expr, inclusive)
+        body = self.parse_block()
+        return LoopNode(variable, range_node, body, is_parallel)
 
     def parse_if_statement(self):
         self.consume('IF')

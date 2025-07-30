@@ -131,3 +131,62 @@ def test_interpreter_comparison_operators(run_dice_code):
     assert "True" in run_dice_code('func main() { print(10 >= 10); }')
     assert "True" in run_dice_code('func main() { print(11 >= 10); }')
     assert "False" in run_dice_code('func main() { print(9 >= 10); }')
+
+# --- Loop and Parallel Control Flow Tests ---
+
+def test_interpreter_sequential_loop(run_dice_code):
+    code = """
+    func main() {
+        loop i in 0..3 {
+            print(i);
+        }
+    }
+    """
+    output = run_dice_code(code)
+    output_lines = output.strip().split('\n')
+    assert output_lines == ["0", "1", "2"]
+
+def test_interpreter_parallel_loop(run_dice_code):
+    code = """
+    func main() {
+        p loop i in 0..3 {
+            wait(0.01 * (2-i)); // 意図的に逆順で終わるように待機
+            print(i);
+        }
+    }
+    """
+    output = run_dice_code(code)
+    output_lines = set(output.strip().split('\n'))
+    assert output_lines == {"0", "1", "2"}
+
+def test_interpreter_nested_parallelism_with_sequential_loop(run_dice_code):
+    code = """
+    func main() {
+        p {
+            // このループは p ブロックの直接の子ではないため、順次実行される
+            loop i in 0..2 {
+                print(i);
+            }
+            // 同時に実行されるタスク
+            print("side task");
+        }
+    }
+    """
+    output = run_dice_code(code)
+    output_lines = output.strip().split('\n')
+    assert "0" in output_lines
+    assert "1" in output_lines
+    assert "side task" in output_lines
+    assert output_lines.index("0") < output_lines.index("1")
+
+def test_interpreter_sequential_inclusive_loop(run_dice_code):
+    code = """
+    func main() {
+        loop i in 0..=3 {
+            print(i);
+        }
+    }
+    """
+    output = run_dice_code(code)
+    output_lines = output.strip().split('\n')
+    assert output_lines == ["0", "1", "2", "3"]

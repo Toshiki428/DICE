@@ -8,12 +8,14 @@ def tokenize_generator(code):
     ソースコードをトークンに分割するジェネレータ関数
     """
     token_specification = [
-        ('NUMBER',        r'\d+(\.\d*)?'),
+        ('NUMBER',        r'\d+(\.\d+)?'),
         ('STRING',        r'"[^"\\]*(\\.[^"\\]*)*"'),
         ('TRUE',          r'\btrue\b'),
         ('FALSE',         r'\bfalse\b'),
         ('IF',            r'\bif\b'),
         ('ELSE',          r'\belse\b'),
+        ('LOOP',          r'\bloop\b'),
+        ('IN',            r'\bin\b'),
         ('PARALLEL',      r'\bparallel\b'),
         ('P_ALIAS',       r'\bp\b'),
         ('FUNC',          r'\bfunc\b'),
@@ -22,6 +24,8 @@ def tokenize_generator(code):
         ('RETURN',        r'\breturn\b'),
         ('AT',            r'@'),
         ('ARROW',         r'->'),
+        ('RANGE_INCLUSIVE_OP', r'\.\.='), # Add this line for '..=' operator
+        ('RANGE_EXCLUSIVE_OP', r'\.\.'),  # Add this line for '..' operator
         ('LBRACE',        r'\{'),
         ('RBRACE',        r'\}'),
         ('LPAREN',        r'\('),
