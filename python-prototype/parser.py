@@ -477,9 +477,16 @@ class Parser:
             if self.peek().type == 'LBRACE':
                 # @timed { ... } の形式
                 node = self.parse_block()
+            elif self.peek().type in ('PARALLEL', 'P_ALIAS') and self.peek(1).type == 'LOOP':
+                # @timed p loop { ... } の形式
+                self.consume(('PARALLEL', 'P_ALIAS')) # p を消費
+                node = self.parse_loop_statement(is_parallel=True)
             elif self.peek().type in ('PARALLEL', 'P_ALIAS'):
                 # @timed parallel { ... } の形式
                 node = self.parse_parallel_block()
+            elif self.peek().type == 'LOOP':
+                # @timed loop { ... } の形式
+                node = self.parse_loop_statement(is_parallel=False)
             else:
                 # @timed statement; の形式 (例: @timed func_call();)
                 node = self.parse_expression_statement()

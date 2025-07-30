@@ -57,3 +57,29 @@ def test_timed_with_tag(run_dice_code):
     output = run_dice_code(code)
     assert "[TIMED: my_custom_tag]" in output
     assert re.search(r"\[TIMED: my_custom_tag\] \d\.\d{4}s", output)
+
+def test_timed_loop(run_dice_code):
+    code = '''
+    func main() {
+        @timed("loop_test")
+        loop i in 0..3 {
+            wait(0.01);
+        }
+    }
+    '''
+    output = run_dice_code(code)
+    assert "[TIMED: loop_test]" in output
+    assert re.search(r"\[TIMED: loop_test\] \d\.\d{4}s", output)
+
+def test_timed_loop_parallel(run_dice_code):
+    code = '''
+    func main() {
+        @timed("parallel_loop_test")
+        p loop i in 0..3 {
+            wait(0.01);
+        }
+    }
+    '''
+    output = run_dice_code(code)
+    assert "[TIMED: parallel_loop_test]" in output
+    assert re.search(r"\[TIMED: parallel_loop_test\] \d\.\d{4}s", output)
