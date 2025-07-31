@@ -247,27 +247,16 @@ class Parser:
 
     def parse_statement(self):
         """単一のステートメント（文）を解析する"""
-        if self.peek().type in ('PARALLEL', 'P_ALIAS'):
-            # 'p' が 'loop' の修飾子として使われるケースをチェック
-            if self.peek(1).type == 'LOOP':
-                self.consume(('PARALLEL', 'P_ALIAS')) # 'p'を消費
-                return self.parse_loop_statement(is_parallel=True)
-            # そうでなければ、通常の parallel ブロックとして解釈
-            else:
-                return self.parse_parallel_block()
-
         if self.peek().type == 'AT':
             return self.parse_timed_block()
         if self.peek().type == 'FUNC':
             return self.parse_func_def()
         if self.peek().type == 'TASKUNIT':
             return self.parse_task_unit_def()
-        if self.peek().type == 'IF':
-            return self.parse_if_statement()
-        if self.peek().type == 'LOOP':
-            return self.parse_loop_statement(is_parallel=False)
         if self.peek().type == 'RETURN':
             return self.parse_return_statement()
+        
+        # それ以外はすべて式文として解析を試みる
         return self.parse_expression_statement()
 
     def parse_expression_statement(self):
@@ -305,6 +294,11 @@ class Parser:
         if self.peek().type == 'ASSIGN':
             self.consume('ASSIGN')
             value = self.parse_assignment() # 右側の代入を再帰的に解析
+
+            # 値を返さない構文は代入を禁止する
+            if isinstance(value, (ParallelNode, IfNode, LoopNode)):
+                raise SyntaxError(f"Cannot assign a {value.__class__.__name__} to a variable.")
+
             if isinstance(left, IdentifierNode):
                 return AssignNode(left, value)
             else:
@@ -359,7 +353,21 @@ class Parser:
     def parse_primary(self):
         """最も基本的な式の要素（リテラル、識別子、括弧付きの式など）を解析する"""
         token = self.peek()
-        if token.type == 'IDENTIFIER':
+
+        if token.type in ('PARALLEL', 'P_ALIAS'):
+            self.consume(('PARALLEL', 'P_ALIAS'))
+            if self.peek().type == 'LOOP':
+                return self.parse_loop_statement(is_parallel=True)
+            else:
+                body = self.parse_block()
+                return ParallelNode(body)
+        elif token.type == 'IF':
+            return self.parse_if_statement()
+        elif token.type == 'LOOP':
+            return self.parse_loop_statement(is_parallel=False)
+        elif token.type == 'LBRACE':
+            return self.parse_block()
+        elif token.type == 'IDENTIFIER':
             return IdentifierNode(self.consume('IDENTIFIER'))
         elif token.type == 'STRING':
             return StringLiteralNode(self.consume('STRING'))
@@ -400,12 +408,6 @@ class Parser:
                 self.consume('NEWLINE')
         self.consume('RBRACE')
         return StatementsNode(statements)
-
-    def parse_parallel_block(self):
-        """`parallel` または `p` ブロックを解析する"""
-        self.consume(('PARALLEL', 'P_ALIAS'))
-        body = self.parse_block()
-        return ParallelNode(body)
 
     def parse_func_def(self):
         """`func` キーワードから始まる関数定義を解析する"""
@@ -473,23 +475,7 @@ class Parser:
                     raise SyntaxError(f"Expected string literal for @timed tag, but found {self.peek().type}")
                 self.consume('RPAREN')
 
-            # `@timed` の後に続くノードを解析
-            if self.peek().type == 'LBRACE':
-                # @timed { ... } の形式
-                node = self.parse_block()
-            elif self.peek().type in ('PARALLEL', 'P_ALIAS') and self.peek(1).type == 'LOOP':
-                # @timed p loop { ... } の形式
-                self.consume(('PARALLEL', 'P_ALIAS')) # p を消費
-                node = self.parse_loop_statement(is_parallel=True)
-            elif self.peek().type in ('PARALLEL', 'P_ALIAS'):
-                # @timed parallel { ... } の形式
-                node = self.parse_parallel_block()
-            elif self.peek().type == 'LOOP':
-                # @timed loop { ... } の形式
-                node = self.parse_loop_statement(is_parallel=False)
-            else:
-                # @timed statement; の形式 (例: @timed func_call();)
-                node = self.parse_expression_statement()
+            node = self.parse_expression_statement()
             return TimedNode(node, tag)
         else:
             raise SyntaxError(f"Expected 'timed' after '@', but found {self.peek().value}")
