@@ -1,85 +1,78 @@
 import pytest
-import time
 import re
 
-
-def test_timed_function_call(run_dice_code):
-    code = '''
-    func my_func() {
-        wait(0.1)
-    }
-
-    func main() {
+@pytest.mark.parametrize("construct, expected_label", [
+    ("my_func();", "function"),
+    ("{ wait(0.01); }", "block"),
+    ("p { wait(0.01); }", "parallel"),
+    ("if (true) { wait(0.01); }", "IfNode"),
+    ("loop i in 0..1 { wait(0.01); }", "LoopNode"),
+    ("p loop i in 0..1 { wait(0.01); }", "LoopNode"),
+])
+def test_timed_constructs_default_label(run_dice_code, construct, expected_label):
+    """Tests that various constructs get the correct default timed label."""
+    code = f'''
+    func my_func() {{ wait(0.01); }}
+    func main() {{
         @timed
-        my_func();
-    }
+        {construct}
+    }}
     '''
     output = run_dice_code(code)
-    assert "[TIMED: function]" in output
-    # Regex to check for the time format, e.g., 0.1234s
-    assert re.search(r"\[TIMED: function\] \d\.\d{4}s", output)
+    assert f"[TIMED: {expected_label}]" in output
+    assert re.search(rf"\[TIMED: {re.escape(expected_label)}\] \d\.\d{{4}}s", output)
 
-def test_timed_block(run_dice_code):
+@pytest.mark.parametrize("construct", [
+    "my_func();",
+    "{ wait(0.01); }",
+    "p { wait(0.01); }",
+    "if (true) { wait(0.01); }",
+    "loop i in 0..1 { wait(0.01); }",
+])
+def test_timed_constructs_with_custom_tag(run_dice_code, construct):
+    """Tests that various constructs work correctly with a custom timed tag."""
+    tag = "my_awesome_tag"
+    code = f'''
+    func my_func() {{ wait(0.01); }}
+    func main() {{
+        @timed("{tag}")
+        {construct}
+    }}
+    '''
+    output = run_dice_code(code)
+    assert f"[TIMED: {tag}]" in output
+    assert re.search(rf"\[TIMED: {re.escape(tag)}\] \d\.\d{{4}}s", output)
+
+def test_nested_timed_blocks(run_dice_code):
+    """Ensures that nested @timed blocks both report their times correctly."""
     code = '''
+    func inner_func() {
+        @timed("inner")
+        wait(0.02);
+    }
+
     func main() {
-        @timed
+        @timed("outer")
         {
-            wait(0.05);
-        }
-    }
-    '''
-    output = run_dice_code(code)
-    assert "[TIMED: block]" in output
-    assert re.search(r"\[TIMED: block\] \d\.\d{4}s", output)
-
-def test_timed_parallel_block(run_dice_code):
-    code = '''
-    func main() {
-        @timed
-        p {
-            wait(0.03);
-        }
-    }
-    '''
-    output = run_dice_code(code)
-    assert "[TIMED: parallel]" in output
-    assert re.search(r"\[TIMED: parallel\] \d\.\d{4}s", output)
-
-def test_timed_with_tag(run_dice_code):
-    code = '''
-    func main() {
-        @timed("my_custom_tag")
-        {
-            wait(0.02);
-        }
-    }
-    '''
-    output = run_dice_code(code)
-    assert "[TIMED: my_custom_tag]" in output
-    assert re.search(r"\[TIMED: my_custom_tag\] \d\.\d{4}s", output)
-
-def test_timed_loop(run_dice_code):
-    code = '''
-    func main() {
-        @timed("loop_test")
-        loop i in 0..3 {
             wait(0.01);
+            inner_func();
         }
     }
     '''
     output = run_dice_code(code)
-    assert "[TIMED: loop_test]" in output
-    assert re.search(r"\[TIMED: loop_test\] \d\.\d{4}s", output)
+    # Check for both timed outputs
+    assert re.search(r"\[TIMED: inner\] \d\.\d{4}s", output)
+    assert re.search(r"\[TIMED: outer\] \d\.\d{4}s", output)
 
-def test_timed_loop_parallel(run_dice_code):
-    code = '''
-    func main() {
-        @timed("parallel_loop_test")
-        p loop i in 0..3 {
-            wait(0.01);
-        }
-    }
-    '''
-    output = run_dice_code(code)
-    assert "[TIMED: parallel_loop_test]" in output
-    assert re.search(r"\[TIMED: parallel_loop_test\] \d\.\d{4}s", output)
+    # Extract times to check if outer > inner
+    inner_time_match = re.search(r"\[TIMED: inner\] (\d\.\d{4})s", output)
+    outer_time_match = re.search(r"\[TIMED: outer\] (\d\.\d{4})s", output)
+
+    assert inner_time_match is not None
+    assert outer_time_match is not None
+
+    inner_time = float(inner_time_match.group(1))
+    outer_time = float(outer_time_match.group(1))
+
+    assert outer_time > inner_time
+    assert outer_time > 0.03 # 0.01 (outer) + 0.02 (inner)

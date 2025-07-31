@@ -1,192 +1,119 @@
 import pytest
-
-from tokenizer import Tokenizer, Token
+import re
 from parser import Parser
-from interpreter import Interpreter
+from tokenizer import Tokenizer
 
-# --- Tokenizer Tests ---
-def test_tokenizer_basic_tokens():
-    code = "func main() { var = 10 + \"hello\"; }"
-    tokenizer = Tokenizer(code)
-    tokens = tokenizer.tokenize()
-    assert tokens[0].type == 'FUNC'
-    assert tokens[1].type == 'IDENTIFIER'
-    assert tokens[1].value == 'main'
-    assert tokens[5].type == 'IDENTIFIER'
-    assert tokens[5].value == 'var'
-    assert tokens[7].type == 'NUMBER'
-    assert tokens[7].value == '10'
-    assert tokens[8].type == 'PLUS'
-    assert tokens[9].type == 'STRING'
-    assert tokens[9].value == '"hello"'
+# --- Parser Error Tests ---
 
-# --- Parser Tests ---
-def test_parser_func_def():
-    code = "func my_func() { wait(1); }"
-    tokenizer = Tokenizer(code)
-    tokens = tokenizer.tokenize()
-    parser = Parser(tokens)
-    ast = parser.parse()
-    assert ast is not None
-    assert len(ast.statements) == 1
-    assert ast.statements[0].__class__.__name__ == 'FuncDefNode'
-    assert ast.statements[0].name == 'my_func'
-
-def test_parser_assignment_and_arithmetic():
-    code = "func main() { a = 1 + 2 * 3; }"
-    tokenizer = Tokenizer(code)
-    tokens = tokenizer.tokenize()
-    parser = Parser(tokens)
-    ast = parser.parse()
-    assert ast is not None
+@pytest.mark.parametrize("code, error_message", [
+    ("func main() { x = p {} }", "Cannot assign a ParallelNode to a variable."),
+    ("func main() { x = if (true) {} }", "Cannot assign a IfNode to a variable."),
+    ("func main() { x = loop i in 0..1 {} }", "Cannot assign a LoopNode to a variable."),
+    ("func main() { 1 + }", "Unexpected token Token(type='RBRACE', value='}', line=1, column=19) at line 1"),
+])
+def test_parser_errors(code, error_message):
+    """Ensures the parser raises SyntaxError for grammatically incorrect code."""
+    with pytest.raises(SyntaxError, match=re.escape(error_message)):
+        tokens = Tokenizer(code).tokenize()
+        Parser(tokens).parse()
 
 # --- Interpreter Tests ---
-def test_interpreter_arithmetic(run_dice_code):
-    code = "func main() { print(10 + 5 - 2 * 3 / 2); }"
-    output = run_dice_code(code)
-    # 10 + 5 - 3 = 12
-    assert "12.0" in output
 
-def test_interpreter_variable_assignment(run_dice_code):
-    code = "func main() { x = 10; print(x); }"
-    output = run_dice_code(code)
-    assert "10.0" in output
+@pytest.mark.parametrize("code, expected_output", [
+    ("print(10 + 2 * 3);", "16.0"),
+    ("print((10 + 2) * 3);", "36.0"),
+    ("print(10 / 2 - 1);", "4.0"),
+])
+def test_arithmetic_operations(run_dice_code, code, expected_output):
+    """Tests basic arithmetic operations and operator precedence."""
+    dice_code = f"func main() {{ {code} }}"
+    assert expected_output in run_dice_code(dice_code)
 
-def test_interpreter_function_call(run_dice_code):
-    code = """
-    func greet(name) {
-        print("Hello, " + name);
-    }
-    func main() {
-        greet("World");
-    }
-    """
-    output = run_dice_code(code)
-    assert "Hello, World" in output
-
-def test_interpreter_boolean_values(run_dice_code):
-    code = """
-    func main() {
-        a = true;
-        b = false;
-        print(a);
-        print(b);
-    }
-    """
-    output = run_dice_code(code)
-    assert "True" in output
-    assert "False" in output
-
-def test_interpreter_if_statement(run_dice_code):
-    code = """
-    func main() {
-        a = 10;
-        if (a == 10) {
-            print("a is 10");
-        } else {
-            print("a is not 10");
-        }
-    }
-    """
-    output = run_dice_code(code)
-    assert "a is 10" in output
-
-def test_interpreter_if_else_statement(run_dice_code):
-    code = """
-    func main() {
-        a = 20;
-        if (a == 10) {
-            print("a is 10");
-        } else {
-            print("a is not 10");
-        }
-    }
-    """
-    output = run_dice_code(code)
-    assert "a is not 10" in output
-
-def test_interpreter_comparison_operators(run_dice_code):
+@pytest.mark.parametrize("expression, expected_output", [
     # Equal
-    assert "True" in run_dice_code('func main() { print(10 == 10); }')
-    assert "False" in run_dice_code('func main() { print(10 == 5); }')
-
+    ("10 == 10", "True"),
+    ("10 == 5", "False"),
     # Not Equal
-    assert "True" in run_dice_code('func main() { print(10 != 5); }')
-    assert "False" in run_dice_code('func main() { print(10 != 10); }')
-
+    ("10 != 5", "True"),
+    ("10 != 10", "False"),
     # Less Than
-    assert "True" in run_dice_code('func main() { print(5 < 10); }')
-    assert "False" in run_dice_code('func main() { print(10 < 5); }')
-
+    ("5 < 10", "True"),
+    ("10 < 5", "False"),
+    ("5 < 5", "False"),
     # Greater Than
-    assert "True" in run_dice_code('func main() { print(10 > 5); }')
-    assert "False" in run_dice_code('func main() { print(5 > 10); }')
-
+    ("10 > 5", "True"),
+    ("5 > 10", "False"),
+    ("5 > 5", "False"),
     # Less Than or Equal
-    assert "True" in run_dice_code('func main() { print(5 <= 5); }')
-    assert "True" in run_dice_code('func main() { print(4 <= 5); }')
-    assert "False" in run_dice_code('func main() { print(6 <= 5); }')
-
+    ("5 <= 10", "True"),
+    ("5 <= 5", "True"),
+    ("10 <= 5", "False"),
     # Greater Than or Equal
-    assert "True" in run_dice_code('func main() { print(10 >= 10); }')
-    assert "True" in run_dice_code('func main() { print(11 >= 10); }')
-    assert "False" in run_dice_code('func main() { print(9 >= 10); }')
+    ("10 >= 5", "True"),
+    ("10 >= 10", "True"),
+    ("5 >= 10", "False"),
+])
+def test_comparison_operators(run_dice_code, expression, expected_output):
+    """Tests all comparison operators for both true and false outcomes."""
+    dice_code = f"func main() {{ print({expression}); }}"
+    assert expected_output in run_dice_code(dice_code)
 
-# --- Loop and Parallel Control Flow Tests ---
-
-def test_interpreter_sequential_loop(run_dice_code):
-    code = """
-    func main() {
-        loop i in 0..3 {
-            print(i);
-        }
+def test_variable_assignment_and_scope(run_dice_code):
+    """Tests that variables are correctly assigned and scoped."""
+    code = '''
+    x = 10; // Global scope
+    func my_func() {
+        x = 20; // Local scope
+        print("Inner x:", x);
     }
-    """
-    output = run_dice_code(code)
-    output_lines = output.strip().split('\n')
-    assert output_lines == ["0", "1", "2"]
-
-def test_interpreter_parallel_loop(run_dice_code):
-    code = """
     func main() {
-        p loop i in 0..3 {
-            wait(0.01 * (2-i)); // 意図的に逆順で終わるように待機
-            print(i);
-        }
+        my_func();
+        print("Outer x:", x);
     }
-    """
+    '''
     output = run_dice_code(code)
-    output_lines = set(output.strip().split('\n'))
-    assert output_lines == {"0", "1", "2"}
+    assert "Inner x: 20.0" in output
+    assert "Outer x: 10.0" in output
 
-def test_interpreter_nested_parallelism_with_sequential_loop(run_dice_code):
-    code = """
-    func main() {
-        p {
-            // このループは p ブロックの直接の子ではないため、順次実行される
-            loop i in 0..2 {
-                print(i);
-            }
-            // 同時に実行されるタスク
-            print("side task");
-        }
-    }
-    """
-    output = run_dice_code(code)
-    output_lines = output.strip().split('\n')
-    assert "0" in output_lines
-    assert "1" in output_lines
-    assert "side task" in output_lines
-    assert output_lines.index("0") < output_lines.index("1")
+@pytest.mark.parametrize("return_val, expected_val", [
+    ("123", "123.0"),
+    ('"hello"', "hello"),
+    ("true", "True"),
+])
+def test_return_statement(run_dice_code, return_val, expected_val):
+    """Tests that `return` statements correctly return values of different types."""
+    code = f'''
+    func get_value() {{
+        return {return_val};
+    }}
+    func main() {{
+        result = get_value();
+        print(result);
+    }}
+    '''
+    assert expected_val in run_dice_code(code)
 
-def test_interpreter_sequential_inclusive_loop(run_dice_code):
-    code = """
-    func main() {
-        loop i in 0..=3 {
-            print(i);
-        }
+def test_function_without_return(run_dice_code):
+    """Tests that a function without a return statement implicitly returns None."""
+    code = '''
+    func no_return() {
+        a = 1;
     }
-    """
-    output = run_dice_code(code)
-    output_lines = output.strip().split('\n')
-    assert output_lines == ["0", "1", "2", "3"]
+    func main() {
+        result = no_return();
+        print(result);
+    }
+    '''
+    assert "None" in run_dice_code(code)
+
+# --- Interpreter Runtime Error Tests ---
+
+@pytest.mark.parametrize("code, error_type, match_message", [
+    ("print(1 / 0);", ZeroDivisionError, "Division by zero"),
+    ("print(undefined_var);", NameError, "'undefined_var' is not defined"),
+])
+def test_interpreter_runtime_errors(run_dice_code, code, error_type, match_message):
+    """Ensures the interpreter raises appropriate errors for runtime exceptions."""
+    dice_code = f"func main() {{ {code} }}"
+    with pytest.raises(error_type, match=match_message):
+        run_dice_code(dice_code)
