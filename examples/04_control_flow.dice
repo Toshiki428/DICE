@@ -1,0 +1,29 @@
+func main() {
+    // if-elseによる条件分岐
+    value = 10;
+    if (value > 5) {
+        print("valueは5より大きいです。");
+    } else {
+        print("valueは5以下です。");
+    }
+
+    print("-----");
+
+    // loopによる順次ループ
+    // 0から3まで（4回）繰り返す
+    print("順次ループ開始");
+    loop i in 0..4 {
+        wait(0.1);
+        print("loop", i);
+    }
+
+    print("-----");
+
+    // p loopによる並列ループ
+    // ブロック内の処理が、それぞれのiの値について並列で実行される
+    print("並列ループ開始");
+    p loop i in 0..=3 { // ..= を使うと終端の値も含む
+        wait(0.5 - (i * 0.1));
+        print("p loop", i);
+    }
+}

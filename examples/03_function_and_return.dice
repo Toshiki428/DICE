@@ -1,0 +1,28 @@
+// funcキーワードで関数を定義
+func add(a, b) {
+    // return文で値を返す
+    return a + b;
+}
+
+func greet(name) {
+    return "Hello, " + name + "!";
+}
+
+// return文がない関数
+func noReturnFunc() {
+    print("この関数はreturn文を持ちません。");
+}
+
+func main() {
+    // 関数の呼び出しと戻り値の利用
+    sum = add(10, 20);
+    print("10 + 20 =", sum);
+
+    message = greet("DICE");
+    print(message);
+
+    // 戻り値がない関数の呼び出し
+    // 戻り値はNone（PythonのNoneに対応）となる
+    result = noReturnFunc();
+    print("戻り値がない関数の結果:", result);
+}

@@ -1,0 +1,29 @@
+// @timedアノテーションを使うと、関数やブロックの実行時間を計測できる
+
+func my_func() {
+    wait(0.1);
+}
+
+func main() {
+    // タグなしで関数呼び出しを計測
+    @timed
+    my_func();
+
+    // タグ付きで関数呼び出しを計測
+    @timed("my_func_timer")
+    my_func();
+
+    // タグ付きでブロックを計測
+    @timed("my_block_timer")
+    {
+        wait(0.05);
+        wait(0.05);
+    }
+
+    // タグ付きで並列ブロックを計測
+    @timed("parallel_task_timer")
+    p {
+        wait(0.02);
+        wait(0.02);
+    }
+}

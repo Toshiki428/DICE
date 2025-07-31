@@ -1,0 +1,28 @@
+func main() {
+    // 変数宣言と代入
+    myNumber = 10;
+    myString = "Hello, DICE!";
+
+    // print関数による出力
+    print("My number is:", myNumber);
+    print(myString);
+
+    // 四則演算
+    result1 = 10 + 5;
+    print("10 + 5 =", result1);
+
+    result2 = 20 - 7;
+    print("20 - 7 =", result2);
+
+    result3 = 4 * 6;
+    print("4 * 6 =", result3);
+
+    result4 = 100 / 4;
+    print("100 / 4 =", result4);
+
+    // 演算子の優先順位
+    // (10 + 2) * 3 = 36
+    print("(10 + 2) * 3 =", (10 + 2) * 3);
+    // 10 + 2 * 3 = 16
+    print("10 + 2 * 3 =", 10 + 2 * 3);
+}

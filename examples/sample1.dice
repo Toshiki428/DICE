@@ -1,6 +1,0 @@
-func main() {
-    p {
-        print("task1");
-        print("task2") -> print("task3");
-    } -> print("finalize");
-}

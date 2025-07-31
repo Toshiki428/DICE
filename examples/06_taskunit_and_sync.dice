@@ -1,0 +1,40 @@
+// taskunitは、段階的に実行される一連の処理を定義します。
+// ロボットアームやセンサー群など、複数のオブジェクトを協調させて動かす際に便利です。
+
+taskunit DeviceA {
+    step1() {
+        print("DeviceA: 初期化");
+        wait(0.1);
+    }
+    step2() {
+        print("DeviceA: データ収集");
+        wait(0.2);
+    }
+}
+
+taskunit DeviceB {
+    step1() {
+        print("DeviceB: 起動シーケンス開始");
+        wait(0.2);
+    }
+    step2() {
+        print("DeviceB: 自己診断実行");
+        wait(0.1);
+    }
+}
+
+func main() {
+    // parallelTasksで複数のtaskunitをグループ化します。
+    group = parallelTasks(DeviceA, DeviceB);
+
+    // group.next()を呼び出すと、各Deviceのstep1が並列で実行されます。
+    print("--- Step 1 ---");
+    group.next();
+
+    // もう一度next()を呼び出すと、各Deviceのstep2が並列で実行されます。
+    // next()は、前のステップの処理がすべて完了するのを待ってから次のステップに進みます（暗黙的な同期）。
+    print("--- Step 2 ---");
+    group.next();
+
+    print("--- 全てのタスクが完了 ---");
+}
