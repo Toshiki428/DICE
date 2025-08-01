@@ -109,3 +109,27 @@ $ python python-prototype/main.py examples/05_timed_annotation.dice
 - 型システム（静的型チェックや構造化型の導入）
 - リスト・辞書などのコレクション型
 - エディタ補完やビジュアルデバッガ連携（開発支援ツール）
+
+
+## 開発者向け情報 (For Developers)
+
+### 実行ファイルのビルド
+
+DICEインタプリタを単一の実行ファイルとしてビルドすることができます。  
+ビルド作業にはPythonと`PyInstaller`が必要ですが、一度ビルドすれば、Pythonがインストールされていない環境でもDICEプログラムを実行できる単一ファイルが生成されます。
+
+1. `PyInstaller` をインストールします。
+    ```bash
+    pip install pyinstaller
+    ```
+
+2. 以下のコマンドでビルドを実行します。
+    ```bash
+    (cd python-prototype && pyinstaller dice.spec)
+    ```
+
+3.  ビルドが成功すると、`python-prototype/dist/` ディレクトリに `dice` という名前の実行ファイルが生成されます。  
+    プロジェクトのルートディレクトリから、以下のコマンドでプログラムを実行します。
+    ```bash
+    ./python-prototype/dist/dice <ファイルパス>
+    ```
