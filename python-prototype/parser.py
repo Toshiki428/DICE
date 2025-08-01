@@ -91,8 +91,16 @@ class CallNode(ASTNode):
     def pretty_print(self, indent=0):
         indent_str = SPACE * indent
         callee_str = self.callee.pretty_print(0).strip()
-        args_str = ", ".join([arg.pretty_print(0) for arg in self.args])
-        return (f"{indent_str}CallNode(callee={callee_str}, args=[{args_str}])")
+        if not self.args:
+            args_str = ""
+        else:
+            args_str = (
+                "\n"
+                + ",\n".join([arg.pretty_print(indent + 1) for arg in self.args])
+                + f"\n{indent_str}"
+            )
+
+        return f"{indent_str}CallNode(callee={callee_str}, args=[{args_str}])"
 
 class MemberAccessNode(ASTNode):
     def __init__(self, obj, member):
